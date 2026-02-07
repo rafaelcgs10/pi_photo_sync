@@ -11,13 +11,6 @@ else
     exit 1
 fi
 
-if command -v syncthing > /dev/null 2>&1; then
-    echo "syncthing detected"
-else
-    echo "syncthing missing "
-    exit 1
-fi
-
 if [ ! -d "$DIRECTORY" ]; then
     echo "Creating photos folder at" $DIRECTORY
     mkdir -p $DIRECTORY
@@ -28,13 +21,17 @@ if [ ! -d "$DIRECTORY/$TODAY" ]; then
     mkdir -p $DIRECTORY/$TODAY
 fi
 
-cd $DIRECTORY/$TODAY
+cd $DIRECTORY
+
 
 while :
 do
     CAMERA=$(gphoto2 --auto-detect | awk 'FNR == 3 {print $1, $2, $3}')
     if [ ! -z "$CAMERA" ]; then
-    gphoto2 --get-all-files --skip-existing | grep -v "Skip"
+        echo "Pulling previous photos"
+        gphoto2 --get-all-files  --skip-existing --filename "%d-%m-%Y/%H-%M-%S-%n.%C" | grep -v "Skip"
+        echo "Done!"
+        gphoto2 --wait-event-and-download  --skip-existing --filename "%d-%m-%Y/%H-%M-%S-%n.%C" | grep -v "UNKNOWN"
     fi
-    sleep 1
+    sleep 10
 done
