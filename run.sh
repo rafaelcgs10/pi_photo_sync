@@ -1,6 +1,5 @@
 #!/usr/bin/env sh
 
-TODAY=$(date +'%Y-%m-%d') 
 
 DIRECTORY=~/photos
 
@@ -16,13 +15,7 @@ if [ ! -d "$DIRECTORY" ]; then
     mkdir -p $DIRECTORY
 fi
 
-if [ ! -d "$DIRECTORY/$TODAY" ]; then
-    echo "Creating today's photos sub folder at" $DIRECTORY/$TODAY
-    mkdir -p $DIRECTORY/$TODAY
-fi
-
 cd $DIRECTORY
-
 
 while :
 do
