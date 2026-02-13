@@ -25,6 +25,7 @@ do
     if [ ! -z "$CAMERA" ]; then
         echo "Pulling previous photos"
         gphoto2 --get-all-files  --skip-existing --filename "%d-%m-%Y/%H-%M-%S-%n.%C" | grep -v "Skip"
+        sleep 3
         echo "Done!"
         gphoto2 gphoto2 --capture-tethered --keep --filename "%d-%m-%Y/%H-%M-%S-%n.%C" | grep -v "UNKNOWN"
     fi
