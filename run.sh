@@ -17,6 +17,8 @@ fi
 
 cd $DIRECTORY
 
+gphoto2 --set-config capturetarget=1
+
 while :
 do
     CAMERA=$(gphoto2 --auto-detect | awk 'FNR == 3 {print $1, $2, $3}')
@@ -24,7 +26,7 @@ do
         echo "Pulling previous photos"
         gphoto2 --get-all-files  --skip-existing --filename "%d-%m-%Y/%H-%M-%S-%n.%C" | grep -v "Skip"
         echo "Done!"
-        gphoto2 --wait-event-and-download  --skip-existing --filename "%d-%m-%Y/%H-%M-%S-%n.%C" | grep -v "UNKNOWN"
+        gphoto2 gphoto2 --capture-tethered --keep --filename "%d-%m-%Y/%H-%M-%S-%n.%C" | grep -v "UNKNOWN"
     fi
     sleep 10
 done
