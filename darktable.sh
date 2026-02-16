@@ -3,7 +3,7 @@ set +e
 
 shopt -s extglob
 DIRECTORY=/rafael_mounts/photos_from_rpi
-STYLES=("astia")
+STYLES=("astia bw UC")
 
 cd $DIRECTORY
 
@@ -11,9 +11,9 @@ while :
 do
     for folder in *; do
         cd ${folder} 
+        pwd
         for style in $STYLES; do
             mkdir -p ${style} ;
-            pwd
             raws=$(ls *.@(CR3|cr3) | sed -e 's/\.CR3$//' | sed -e 's/\.cr3$//' | sort)
             jpgs=$(ls ${style} | sed -e 's/\.jpg$//' | sort)
             dff=$(diff <(echo "$raws") <(echo "$jpgs") | grep "^<" | sed 's/^< //')
