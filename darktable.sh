@@ -3,7 +3,7 @@ set +e
 
 shopt -s extglob
 DIRECTORY=/rafael_mounts/photos_from_rpi
-STYLES=("astia bw UC")
+STYLES=("astia")
 
 cd $DIRECTORY
 
