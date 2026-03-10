@@ -25,7 +25,7 @@ do
 
 
     if [ ! -z "$CAMERA" ]; then
-        paths=$(gphoto2 --list-folders | grep DCIM | tail -n +2 | awk '{print $(NF)}')
+        paths=$(gphoto2 --list-folders | grep DCIM | tail -n 1 | awk '{print $(NF)}')
         while IFS= read -r p; do
             pc="${p//\'/}"
             pc="${pc%.}"
@@ -38,9 +38,7 @@ do
             fi
             cr3p=$ncr3p
 
-            echo "files: " $ncr3p
-
-            echo "$ncr3p" | tr '\n' '\0' | xargs -0 -I {} gphoto2 --folder '/store_00020001/DCIM/100CANON' --get-file {} --skip-existing
+            echo "$ncr3p" | tr '\n' '\0' | xargs -0 -I {} gphoto2 --folder $pc --get-file {} --filename "%d-%m-%Y/%f.%C" --skip-existing
 
 
         done < <(printf "%s\n" "$paths")
