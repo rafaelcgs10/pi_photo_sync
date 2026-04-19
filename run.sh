@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
 
+shopt -s extglob
 
 DIRECTORY=~/photos
 
@@ -37,7 +38,15 @@ do
                 continue
             fi
             cr3p=$ncr3p
+            echo "$ncr3p" | tr '\ ' '\n' | sort
+            echo "--------"
+            sleep 3
+            saveds=$(find . -maxdepth 2 -type f -name "*.CR3" -printf '%f\n')
+            echo "$saveds" | tr '\ ' '\n' | sort
+            # dff=$(diff <(echo "$ncr3p") <(echo "$saveds") | grep "^<" | sed 's/^< //')
+            # echo $dff
 
+            sleep 30
             echo "$ncr3p" | tr '\n' '\0' | xargs -0 -I {} gphoto2 --folder $pc --get-file {} --filename "%d-%m-%Y/%f.%C" --skip-existing
 
 
