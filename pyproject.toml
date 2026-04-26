@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+[project]
+name = "pi_photo_sync"
+version = "0.1.0"
+dependencies = [
+    "spidev",
+    "RPi.GPIO",
+    "Pillow",
+    "gpiozero",
+    "lgpio",
+]
+[tool.setuptools.packages.find]
+where = ["."]
