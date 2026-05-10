@@ -98,7 +98,7 @@ do
                     echo "Downloading: $filename"
                     
                     # Download with date-based folder organization
-                    if gphoto2 --folder "$pc" --get-file "$filename" --filename "%Y-%m-%d/%f.%C"; then
+                    if gphoto2 --folder "$pc" --get-file "$filename" --filename "%Y-%m-%d/%f.%C" --skip-existing; then
                         # Mark as downloaded in database
                         mark_downloaded "$filename"
                         echo "Successfully downloaded and tracked: $filename"
