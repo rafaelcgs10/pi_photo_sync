@@ -4,6 +4,8 @@ shopt -s extglob
 
 DIRECTORY=~/photos
 DB_FILE="$DIRECTORY/.downloaded_photos.db"
+CLEANUP_MIN_FREE_PERCENT=20
+CLEANUP_OLDER_THAN_MINUTES=1440
 
 if command -v gphoto2 > /dev/null 2>&1; then
     echo "gphoto2 detected"
@@ -41,6 +43,21 @@ mark_downloaded() {
 
 while :
 do
+    # Cleanup old folders if disk free space is below the configured threshold
+    disk_info=$(df -Pk "$DIRECTORY" | awk 'NR == 2 {print $2, $4}')
+    read -r total_blocks available_blocks <<< "$disk_info"
+
+    if [ -z "$total_blocks" ] || [ "$total_blocks" -eq 0 ]; then
+        echo "Unable to determine disk space for $DIRECTORY"
+    else
+        free_percent=$((available_blocks * 100 / total_blocks))
+
+        if [ "$free_percent" -lt "$CLEANUP_MIN_FREE_PERCENT" ]; then
+            echo "Disk free space is ${free_percent}%, below ${CLEANUP_MIN_FREE_PERCENT}%; removing folders older than 1 day"
+            find "$DIRECTORY" -mindepth 1 -maxdepth 1 -type d -mmin +"$CLEANUP_OLDER_THAN_MINUTES" -print -exec rm -rf -- {} +
+        fi
+    fi
+
     CAMERA=$(gphoto2 --auto-detect | awk 'FNR == 3 {print $1, $2, $3}')
 
     if [ ! -z "$CAMERA" ]; then
