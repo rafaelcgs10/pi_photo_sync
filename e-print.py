@@ -29,7 +29,7 @@ def render():
         draw.text((0, y), line, font=font, fill=0)
         y += LINE_SPACING
     # return image.rotate(180)
-    return image.rotate(180)
+    return image
 def add_lines(text):
     wrapped = wrap_line(text)
     line_buffer.extend(wrapped)
