@@ -27,7 +27,64 @@ if [ ! -f "$DB_FILE" ]; then
     touch "$DB_FILE"
 fi
 
-gphoto2 --set-config capturetarget=1
+# --- gphoto2 output hygiene -------------------------------------------------
+# gphoto2 wraps every failure in a dozen lines of boilerplate telling you to
+# re-run with --debug. Park its stderr in a scratch file and report only the
+# "*** Error ... ***" summary. Emptying the card while a download is in flight
+# produces one identical failure per remaining file, so a run of the same error
+# collapses to one line plus a count once it passes GPHOTO_ERR_QUIET_AFTER.
+GPHOTO_ERR_FILE=$(mktemp)
+GPHOTO_ERR_QUIET_AFTER=3
+gphoto_last_err=""
+gphoto_err_count=0
+
+trap 'rm -f "$GPHOTO_ERR_FILE"' EXIT INT TERM
+
+# Emit the tally for a run of suppressed errors. Called once things recover, so
+# a flood is always accounted for even though it was not printed line by line.
+flush_gphoto_errors() {
+    if [ "$gphoto_err_count" -gt "$GPHOTO_ERR_QUIET_AFTER" ]; then
+        echo "gphoto2: previous error repeated $gphoto_err_count times"
+    fi
+    gphoto_last_err=""
+    gphoto_err_count=0
+    : > "$GPHOTO_ERR_FILE"
+}
+
+# Condense whatever gphoto2 last wrote to stderr into a single line, or nothing
+# if it did not complain. Must run in the parent shell rather than inside $(),
+# otherwise the repeat counter is lost with the subshell.
+report_gphoto_error() {
+    local line err
+
+    line=$(grep -m1 -F '*** Error' "$GPHOTO_ERR_FILE" 2>/dev/null)
+    : > "$GPHOTO_ERR_FILE"
+    [ -z "$line" ] && return
+
+    case "$line" in
+        # "*** Error (-108: 'File not found') ***" -> "-108: 'File not found'"
+        *'('*')'*) err=$(printf '%s' "$line" | sed -E 's/.*\(([^)]*)\).*/\1/') ;;
+        # "*** Error: No camera found. ***"        -> "No camera found."
+        *)         err=$(printf '%s' "$line" | sed -E 's/^\*\*\* Error:? ?//; s/\*\*\*.*$//; s/[[:space:]]+$//') ;;
+    esac
+    [ -z "$err" ] && err="unspecified error"
+
+    if [ "$err" = "$gphoto_last_err" ]; then
+        gphoto_err_count=$((gphoto_err_count + 1))
+        if [ "$gphoto_err_count" -eq "$GPHOTO_ERR_QUIET_AFTER" ]; then
+            echo "gphoto2: $err (repeating; further identical errors suppressed)"
+        fi
+        return
+    fi
+
+    flush_gphoto_errors
+    gphoto_last_err="$err"
+    gphoto_err_count=1
+    echo "gphoto2: $err"
+}
+
+gphoto2 --set-config capturetarget=1 2>"$GPHOTO_ERR_FILE"
+report_gphoto_error
 
 # Files are tracked by their full camera path, not by basename. The camera
 # restarts numbering at IMG_0001 in each new folder, so a bare name like
@@ -63,7 +120,8 @@ do
         fi
     fi
 
-    CAMERA=$(gphoto2 --auto-detect | awk 'FNR == 3 {print $1, $2, $3}')
+    CAMERA=$(gphoto2 --auto-detect 2>"$GPHOTO_ERR_FILE" | awk 'FNR == 3 {print $1, $2, $3}')
+    report_gphoto_error
 
     if [ ! -z "$CAMERA" ]; then
         echo "Camera detected: $CAMERA"
@@ -75,7 +133,8 @@ do
         # previous `tail -n 1` kept only the last line, which is
         # indistinguishable while the card holds a single folder but silently
         # hides the rest once the camera rolls the counter over into a new one.
-        paths=$(gphoto2 --list-folders | grep "DCIM/" | awk '{print $(NF)}')
+        paths=$(gphoto2 --list-folders 2>"$GPHOTO_ERR_FILE" | grep "DCIM/" | awk '{print $(NF)}')
+        report_gphoto_error
         while IFS= read -r p; do
             pc="${p//\'/}"
             pc="${pc%.}"
@@ -83,7 +142,8 @@ do
             echo "Checking path: $pc"
 
             # Get list of all CR3 files on camera (supports CR3, JPG, and other common formats)
-            camera_files=$(gphoto2 --folder "$pc" --list-files | awk '{print $2}' | egrep '\.(CR3|JPG|JPEG|PNG|RAW|NEF|ARW)$')
+            camera_files=$(gphoto2 --folder "$pc" --list-files 2>"$GPHOTO_ERR_FILE" | awk '{print $2}' | egrep '\.(CR3|JPG|JPEG|PNG|RAW|NEF|ARW)$')
+            report_gphoto_error
             
             if [ -z "$camera_files" ]; then
                 echo "No files found in $pc"
@@ -127,11 +187,14 @@ do
                     echo "Downloading: $filename"
                     
                     # Download with date-based folder organization
-                    if gphoto2 --folder "$pc" --get-file "$filename" --filename "%Y-%m-%d/%f.%C" --skip-existing; then
+                    # stdout is only the progress bar; we log our own outcome below.
+                    if gphoto2 --folder "$pc" --get-file "$filename" --filename "%Y-%m-%d/%f.%C" --skip-existing >/dev/null 2>"$GPHOTO_ERR_FILE"; then
                         # Mark as downloaded in database
                         mark_downloaded "$pc/$filename"
+                        flush_gphoto_errors
                         echo "Successfully downloaded and tracked: $filename"
                     else
+                        report_gphoto_error
                         echo "Failed to download: $filename"
                     fi
                 done <<< "$files_to_download"
