@@ -121,7 +121,14 @@ do
 
         if [ "$free_percent" -lt "$CLEANUP_MIN_FREE_PERCENT" ]; then
             echo "Disk free space is ${free_percent}%, below ${CLEANUP_MIN_FREE_PERCENT}%; removing folders older than 1 day"
-            find "$DIRECTORY" -mindepth 1 -maxdepth 1 -type d -mmin +"$CLEANUP_OLDER_THAN_MINUTES" -print -exec rm -rf -- {} +
+            # Only the YYYY-MM-DD folders we create ourselves. Without the
+            # -name test this also matches Syncthing's .stfolder marker, and
+            # removing that makes Syncthing declare the folder unavailable and
+            # stop syncing -- disabling the very offloading that makes deleting
+            # local photos safe.
+            find "$DIRECTORY" -mindepth 1 -maxdepth 1 -type d \
+                -name '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' \
+                -mmin +"$CLEANUP_OLDER_THAN_MINUTES" -print -exec rm -rf -- {} +
         fi
     fi
 
