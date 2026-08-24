@@ -29,6 +29,11 @@ fi
 
 gphoto2 --set-config capturetarget=1
 
+# Files are tracked by their full camera path, not by basename. The camera
+# restarts numbering at IMG_0001 in each new folder, so a bare name like
+# IMG_0001.CR3 is not unique across folders and would make every photo whose
+# number was already used in a previous folder look "already downloaded".
+
 # Function to check if a file was already downloaded
 is_downloaded() {
     local filename="$1"
@@ -63,7 +68,14 @@ do
     if [ ! -z "$CAMERA" ]; then
         echo "Camera detected: $CAMERA"
         
-        paths=$(gphoto2 --list-folders | grep DCIM | tail -n 1 | awk '{print $(NF)}')
+        # Every image folder under DCIM, not just one. `gphoto2 --list-folders`
+        # prints a "There are N folders in folder 'PATH'." line per folder it
+        # walks; matching "DCIM/" keeps exactly the folders *inside* DCIM and
+        # skips both the bare " - DCIM" listing entry and DCIM itself. The
+        # previous `tail -n 1` kept only the last line, which is
+        # indistinguishable while the card holds a single folder but silently
+        # hides the rest once the camera rolls the counter over into a new one.
+        paths=$(gphoto2 --list-folders | grep "DCIM/" | awk '{print $(NF)}')
         while IFS= read -r p; do
             pc="${p//\'/}"
             pc="${pc%.}"
@@ -93,7 +105,7 @@ do
                 fi
 
                 # Check if already downloaded (in DB or exists in storage)
-                if is_downloaded "$filename" ; then
+                if is_downloaded "$pc/$filename" ; then
                     skipped_count=$((skipped_count + 1))
                 else
                     files_to_download="$files_to_download$filename"$'\n'
@@ -117,7 +129,7 @@ do
                     # Download with date-based folder organization
                     if gphoto2 --folder "$pc" --get-file "$filename" --filename "%Y-%m-%d/%f.%C" --skip-existing; then
                         # Mark as downloaded in database
-                        mark_downloaded "$filename"
+                        mark_downloaded "$pc/$filename"
                         echo "Successfully downloaded and tracked: $filename"
                     else
                         echo "Failed to download: $filename"
