@@ -38,7 +38,12 @@ GPHOTO_ERR_QUIET_AFTER=3
 gphoto_last_err=""
 gphoto_err_count=0
 
-trap 'rm -f "$GPHOTO_ERR_FILE"' EXIT INT TERM
+trap 'rm -f "$GPHOTO_ERR_FILE"' EXIT
+# These need an explicit exit. A handler that only cleans up leaves the `while :`
+# loop running, which makes the script immune to `kill` and lets a restart end
+# up with two copies racing over the camera and the database.
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 # Emit the tally for a run of suppressed errors. Called once things recover, so
 # a flood is always accounted for even though it was not printed line by line.
@@ -83,7 +88,7 @@ report_gphoto_error() {
     echo "gphoto2: $err"
 }
 
-gphoto2 --set-config capturetarget=1 2>"$GPHOTO_ERR_FILE"
+gphoto2 --set-config capturetarget=1 >/dev/null 2>"$GPHOTO_ERR_FILE"
 report_gphoto_error
 
 # Files are tracked by their full camera path, not by basename. The camera
@@ -120,7 +125,15 @@ do
         fi
     fi
 
-    CAMERA=$(gphoto2 --auto-detect 2>"$GPHOTO_ERR_FILE" | awk 'FNR == 3 {print $1, $2, $3}')
+    # Only trust stdout when gphoto2 succeeded: its failure boilerplate also
+    # goes to stdout, and line 3 of that would parse as a camera named
+    # "If you intend", sending the script off looking for folders that do not
+    # exist.
+    if detect_out=$(gphoto2 --auto-detect 2>"$GPHOTO_ERR_FILE"); then
+        CAMERA=$(printf '%s\n' "$detect_out" | awk 'FNR == 3 {print $1, $2, $3}')
+    else
+        CAMERA=""
+    fi
     report_gphoto_error
 
     if [ ! -z "$CAMERA" ]; then
