@@ -1,3 +1,4 @@
+import os
 import sys
 import time
 import textwrap
@@ -51,6 +52,13 @@ def tail(filename, interval=1):
                 image = render()
                 epd.displayPartial(epd.getbuffer(image))
             else:
+                # run.sh's log is recreated with `>` every time it is restarted.
+                # That leaves our read offset past the end of the new, shorter
+                # file, so readline() would return nothing for ever and the
+                # display would freeze on whatever it last drew. Notice the file
+                # having shrunk and pick it up again from the top.
+                if os.fstat(f.fileno()).st_size < f.tell():
+                    f.seek(0)
                 time.sleep(interval)
 if __name__ == '__main__':
     if len(sys.argv) < 2:
